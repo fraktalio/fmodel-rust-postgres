@@ -27,8 +27,6 @@ pub fn order_view<'a>() -> OrderView<'a> {
                 status: event.status.to_owned(),
                 line_items: event.line_items.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the Order, for example.
-            OrderEvent::NotCreated(..) => state.clone(),
 
             OrderEvent::Prepared(event) => state.clone().map(|s| OrderViewState {
                 identifier: event.identifier.to_owned(),
@@ -36,8 +34,6 @@ pub fn order_view<'a>() -> OrderView<'a> {
                 status: event.status.to_owned(),
                 line_items: s.line_items,
             }),
-            // On error event we choose NOT TO change the state of the Order, for example.
-            OrderEvent::NotPrepared(..) => state.clone(),
         }),
 
         // The initial state of the decider

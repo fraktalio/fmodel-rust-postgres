@@ -25,24 +25,18 @@ pub fn restaurant_view<'a>() -> RestaurantView<'a> {
                 name: event.name.to_owned(),
                 menu: event.menu.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the RestaurantView, for example.
-            RestaurantEvent::NotCreated(..) => state.clone(),
 
             RestaurantEvent::MenuChanged(event) => state.clone().map(|s| RestaurantViewState {
                 identifier: event.identifier.to_owned(),
                 name: s.name,
                 menu: event.menu.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the RestaurantView, for example.
-            RestaurantEvent::MenuNotChanged(..) => state.clone(),
 
             RestaurantEvent::OrderPlaced(event) => state.clone().map(|s| RestaurantViewState {
                 identifier: event.identifier.to_owned(),
                 name: s.name,
                 menu: s.menu,
             }),
-            // On error event we choose NOT TO change the state of the RestaurantView, for example.
-            RestaurantEvent::OrderNotPlaced(..) => state.clone(),
         }),
 
         // The initial state of the decider

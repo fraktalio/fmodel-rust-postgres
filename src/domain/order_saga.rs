@@ -17,15 +17,6 @@ pub fn order_saga<'a>() -> OrderSaga<'a> {
                     line_items: event.line_items.to_owned(),
                 })]
             }
-            RestaurantEvent::OrderNotPlaced(..) => {
-                vec![]
-            }
-            RestaurantEvent::NotCreated(..) => {
-                vec![]
-            }
-            RestaurantEvent::MenuNotChanged(..) => {
-                vec![]
-            }
             RestaurantEvent::Created(..) => {
                 vec![]
             }

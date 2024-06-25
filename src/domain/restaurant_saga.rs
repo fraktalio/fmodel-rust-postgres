@@ -14,13 +14,7 @@ pub fn restaurant_saga<'a>() -> RestaurantSaga<'a> {
             OrderEvent::Created(..) => {
                 vec![]
             }
-            OrderEvent::NotCreated(..) => {
-                vec![]
-            }
             OrderEvent::Prepared(..) => {
-                vec![]
-            }
-            OrderEvent::NotPrepared(..) => {
                 vec![]
             }
         }),

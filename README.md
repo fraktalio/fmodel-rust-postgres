@@ -50,7 +50,7 @@ Confused? Run `cargo pgrx help`
 ## The structure of the project
 
 The project is structured as follows:
-- `lib.rs` file contains the entry point of the package/crate.
+- [lib.rs](src/lib.rs) file contains the entry point of the package/crate.
 - `framework` module contains the generalized and parametrized implementation of infrastructure and application layers.
 - `domain` module contains the domain model. It is the core and pure domain logic of the application!!!
 - `application` module contains the application layer. It is the orchestration of the domain model and the infrastructure layer (empty, as it is implemented in the `framework` module).
@@ -58,6 +58,12 @@ The project is structured as follows:
 
 The framework module offers a generic implementation of the infrastructure and application layers, which can be reused across multiple domain models.
 Your focus should be on the `domain` module, where you can implement your unique domain model. We have provided a demo domain model of a `restaurant/order management system` to get you started.
+
+## Check the tests
+The project contains a set of tests that demonstrate how to use the domain model and the framework.
+You can find them in the root: [lib.rs](src/lib.rs).
+
+You will find a command handler function only, which can handle all the commands of the system! Simple!
 
 ## References and further reading
 - [pgrx](https://github.com/pgcentralfoundation/pgrx)

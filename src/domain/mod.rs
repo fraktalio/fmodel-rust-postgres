@@ -1,7 +1,6 @@
 use crate::domain::api::{
     ChangeRestaurantMenu, CreateOrder, CreateRestaurant, MarkOrderAsPrepared, OrderCommand,
-    OrderNotCreated, OrderNotPlaced, OrderNotPrepared, PlaceOrder, RestaurantCommand,
-    RestaurantMenuNotChanged, RestaurantNotCreated,
+    PlaceOrder, RestaurantCommand,
 };
 use crate::domain::order_decider::{order_decider, Order};
 use crate::domain::order_saga::order_saga;
@@ -81,15 +80,10 @@ impl Identifier for Command {
 #[serde(tag = "type")]
 pub enum Event {
     RestaurantCreated(RestaurantCreated),
-    RestaurantNotCreated(RestaurantNotCreated),
     RestaurantMenuChanged(RestaurantMenuChanged),
-    RestaurantMenuNotChanged(RestaurantMenuNotChanged),
     OrderPlaced(OrderPlaced),
-    OrderNotPlaced(OrderNotPlaced),
     OrderCreated(OrderCreated),
-    OrderNotCreated(OrderNotCreated),
     OrderPrepared(OrderPrepared),
-    OrderNotPrepared(OrderNotPrepared),
 }
 
 /// Implement the Identifier trait for the Event enum
@@ -101,11 +95,6 @@ impl Identifier for Event {
             Event::OrderPlaced(evt) => evt.identifier.0,
             Event::OrderCreated(evt) => evt.identifier.0,
             Event::OrderPrepared(evt) => evt.identifier.0,
-            Event::RestaurantNotCreated(evt) => evt.identifier.0,
-            Event::RestaurantMenuNotChanged(evt) => evt.identifier.0,
-            Event::OrderNotPlaced(evt) => evt.identifier.0,
-            Event::OrderNotCreated(evt) => evt.identifier.0,
-            Event::OrderNotPrepared(evt) => evt.identifier.0,
         }
     }
 }
@@ -119,11 +108,6 @@ impl EventType for Event {
             Event::OrderPlaced(_) => "OrderPlaced".to_string(),
             Event::OrderCreated(_) => "OrderCreated".to_string(),
             Event::OrderPrepared(_) => "OrderPrepared".to_string(),
-            Event::RestaurantNotCreated(_) => "RestaurantNotCreated".to_string(),
-            Event::RestaurantMenuNotChanged(_) => "RestaurantMenuNotChanged".to_string(),
-            Event::OrderNotPlaced(_) => "OrderNotPlaced".to_string(),
-            Event::OrderNotCreated(_) => "OrderNotCreated".to_string(),
-            Event::OrderNotPrepared(_) => "OrderNotPrepared".to_string(),
         }
     }
 }
@@ -137,11 +121,6 @@ impl IsFinal for Event {
             Event::OrderPlaced(evt) => evt.r#final,
             Event::OrderCreated(evt) => evt.r#final,
             Event::OrderPrepared(evt) => evt.r#final,
-            Event::RestaurantNotCreated(evt) => evt.r#final,
-            Event::RestaurantMenuNotChanged(evt) => evt.r#final,
-            Event::OrderNotPlaced(evt) => evt.r#final,
-            Event::OrderNotCreated(evt) => evt.r#final,
-            Event::OrderNotPrepared(evt) => evt.r#final,
         }
     }
 }
@@ -153,13 +132,8 @@ impl DeciderType for Event {
             Event::RestaurantCreated(_) => "Restaurant".to_string(),
             Event::RestaurantMenuChanged(_) => "Restaurant".to_string(),
             Event::OrderPlaced(_) => "Restaurant".to_string(),
-            Event::RestaurantNotCreated(_) => "Restaurant".to_string(),
-            Event::RestaurantMenuNotChanged(_) => "Restaurant".to_string(),
-            Event::OrderNotPlaced(_) => "Restaurant".to_string(),
             Event::OrderCreated(_) => "Order".to_string(),
             Event::OrderPrepared(_) => "Order".to_string(),
-            Event::OrderNotCreated(_) => "Order".to_string(),
-            Event::OrderNotPrepared(_) => "Order".to_string(),
         }
     }
 }
@@ -182,34 +156,20 @@ pub fn command_to_sum(command: &Command) -> Sum<RestaurantCommand, OrderCommand>
 pub fn event_to_sum(event: &Event) -> Sum<RestaurantEvent, OrderEvent> {
     match event {
         Event::RestaurantCreated(e) => Sum::First(RestaurantEvent::Created(e.to_owned())),
-        Event::RestaurantNotCreated(e) => Sum::First(RestaurantEvent::NotCreated(e.to_owned())),
         Event::RestaurantMenuChanged(e) => Sum::First(RestaurantEvent::MenuChanged(e.to_owned())),
-        Event::RestaurantMenuNotChanged(e) => {
-            Sum::First(RestaurantEvent::MenuNotChanged(e.to_owned()))
-        }
         Event::OrderPlaced(e) => Sum::First(RestaurantEvent::OrderPlaced(e.to_owned())),
-        Event::OrderNotPlaced(e) => Sum::First(RestaurantEvent::OrderNotPlaced(e.to_owned())),
         Event::OrderCreated(e) => Sum::Second(OrderEvent::Created(e.to_owned())),
-        Event::OrderNotCreated(e) => Sum::Second(OrderEvent::NotCreated(e.to_owned())),
         Event::OrderPrepared(e) => Sum::Second(OrderEvent::Prepared(e.to_owned())),
-        Event::OrderNotPrepared(e) => Sum::Second(OrderEvent::NotPrepared(e.to_owned())),
     }
 }
 
 pub fn event_to_sum2(event: &Event) -> Sum<OrderEvent, RestaurantEvent> {
     match event {
         Event::RestaurantCreated(e) => Sum::Second(RestaurantEvent::Created(e.to_owned())),
-        Event::RestaurantNotCreated(e) => Sum::Second(RestaurantEvent::NotCreated(e.to_owned())),
         Event::RestaurantMenuChanged(e) => Sum::Second(RestaurantEvent::MenuChanged(e.to_owned())),
-        Event::RestaurantMenuNotChanged(e) => {
-            Sum::Second(RestaurantEvent::MenuNotChanged(e.to_owned()))
-        }
         Event::OrderPlaced(e) => Sum::Second(RestaurantEvent::OrderPlaced(e.to_owned())),
-        Event::OrderNotPlaced(e) => Sum::Second(RestaurantEvent::OrderNotPlaced(e.to_owned())),
         Event::OrderCreated(e) => Sum::First(OrderEvent::Created(e.to_owned())),
-        Event::OrderNotCreated(e) => Sum::First(OrderEvent::NotCreated(e.to_owned())),
         Event::OrderPrepared(e) => Sum::First(OrderEvent::Prepared(e.to_owned())),
-        Event::OrderNotPrepared(e) => Sum::First(OrderEvent::NotPrepared(e.to_owned())),
     }
 }
 
@@ -231,17 +191,12 @@ pub fn sum_to_event(event: &Sum<RestaurantEvent, OrderEvent>) -> Event {
     match event {
         Sum::First(e) => match e {
             RestaurantEvent::Created(e) => Event::RestaurantCreated(e.to_owned()),
-            RestaurantEvent::NotCreated(e) => Event::RestaurantNotCreated(e.to_owned()),
             RestaurantEvent::MenuChanged(e) => Event::RestaurantMenuChanged(e.to_owned()),
-            RestaurantEvent::MenuNotChanged(e) => Event::RestaurantMenuNotChanged(e.to_owned()),
             RestaurantEvent::OrderPlaced(e) => Event::OrderPlaced(e.to_owned()),
-            RestaurantEvent::OrderNotPlaced(e) => Event::OrderNotPlaced(e.to_owned()),
         },
         Sum::Second(e) => match e {
             OrderEvent::Created(e) => Event::OrderCreated(e.to_owned()),
-            OrderEvent::NotCreated(e) => Event::OrderNotCreated(e.to_owned()),
             OrderEvent::Prepared(e) => Event::OrderPrepared(e.to_owned()),
-            OrderEvent::NotPrepared(e) => Event::OrderNotPrepared(e.to_owned()),
         },
     }
 }

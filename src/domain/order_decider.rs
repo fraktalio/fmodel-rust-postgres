@@ -1,8 +1,9 @@
 use fmodel_rust::decider::Decider;
+use pgrx::error;
 
 use crate::domain::api::{
-    OrderCommand, OrderCreated, OrderEvent, OrderId, OrderLineItem, OrderNotCreated,
-    OrderNotPrepared, OrderPrepared, OrderStatus, Reason, RestaurantId,
+    OrderCommand, OrderCreated, OrderEvent, OrderId, OrderLineItem, OrderPrepared, OrderStatus,
+    Reason, RestaurantId,
 };
 
 /// The state of the Order is represented by this struct. It belongs to the Domain layer.
@@ -25,13 +26,7 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
         decide: Box::new(|command, state| match command {
             OrderCommand::Create(command) => {
                 if state.is_some() {
-                    vec![OrderEvent::NotCreated(OrderNotCreated {
-                        identifier: command.identifier.to_owned(),
-                        restaurant_identifier: command.restaurant_identifier.to_owned(),
-                        line_items: command.line_items.to_owned(),
-                        reason: Reason("Order already exists".to_string()),
-                        r#final: false,
-                    })]
+                    error!("Failed to create the Order. Order already exists!")
                 } else {
                     vec![OrderEvent::Created(OrderCreated {
                         identifier: command.identifier.to_owned(),
@@ -53,11 +48,7 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
                         r#final: true,
                     })]
                 } else {
-                    vec![OrderEvent::NotPrepared(OrderNotPrepared {
-                        identifier: command.identifier.to_owned(),
-                        reason: Reason("Order in the wrong status previously".to_string()),
-                        r#final: false,
-                    })]
+                    error!("Failed to mark the order as prepared. Order does not exist or is not in the correct state!");
                 }
             }
         }),
@@ -70,16 +61,12 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
                 status: event.status.to_owned(),
                 line_items: event.line_items.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the Order, for example.
-            OrderEvent::NotCreated(..) => state.clone(),
             OrderEvent::Prepared(event) => state.clone().map(|s| Order {
                 identifier: event.identifier.to_owned(),
                 restaurant_identifier: s.restaurant_identifier,
                 status: event.status.to_owned(),
                 line_items: s.line_items,
             }),
-            // On error event we choose NOT TO change the state of the Order, for example.
-            OrderEvent::NotPrepared(..) => state.clone(),
         }),
 
         // The initial state of the decider

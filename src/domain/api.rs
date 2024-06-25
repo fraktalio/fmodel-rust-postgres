@@ -166,11 +166,8 @@ pub struct MarkOrderAsPrepared {
 #[serde(tag = "type")]
 pub enum RestaurantEvent {
     Created(RestaurantCreated),
-    NotCreated(RestaurantNotCreated),
     MenuChanged(RestaurantMenuChanged),
-    MenuNotChanged(RestaurantMenuNotChanged),
     OrderPlaced(OrderPlaced),
-    OrderNotPlaced(OrderNotPlaced),
 }
 
 /// Fact/Event that a restaurant was created
@@ -182,30 +179,11 @@ pub struct RestaurantCreated {
     pub r#final: bool,
 }
 
-/// Fact/Event that a restaurant was not created (with reason)
-#[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub struct RestaurantNotCreated {
-    pub identifier: RestaurantId,
-    pub name: RestaurantName,
-    pub menu: RestaurantMenu,
-    pub reason: Reason,
-    pub r#final: bool,
-}
-
 /// Fact/Event that a restaurant's menu was changed
 #[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
 pub struct RestaurantMenuChanged {
     pub identifier: RestaurantId,
     pub menu: RestaurantMenu,
-    pub r#final: bool,
-}
-
-/// Fact/Event that a restaurant's menu was not changed (with reason)
-#[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub struct RestaurantMenuNotChanged {
-    pub identifier: RestaurantId,
-    pub menu: RestaurantMenu,
-    pub reason: Reason,
     pub r#final: bool,
 }
 
@@ -218,16 +196,6 @@ pub struct OrderPlaced {
     pub r#final: bool,
 }
 
-/// Fact/Event that an order was not placed (with reason)
-#[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub struct OrderNotPlaced {
-    pub identifier: RestaurantId,
-    pub order_identifier: OrderId,
-    pub line_items: Vec<OrderLineItem>,
-    pub reason: Reason,
-    pub r#final: bool,
-}
-
 // #### ORDER ####
 
 /// All possible event variants that could be used to update an order
@@ -235,9 +203,7 @@ pub struct OrderNotPlaced {
 #[serde(tag = "type")]
 pub enum OrderEvent {
     Created(OrderCreated),
-    NotCreated(OrderNotCreated),
     Prepared(OrderPrepared),
-    NotPrepared(OrderNotPrepared),
 }
 
 /// Fact/Event that an order was created
@@ -250,28 +216,10 @@ pub struct OrderCreated {
     pub r#final: bool,
 }
 
-/// Fact/Event that an order was not created (with reason)
-#[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub struct OrderNotCreated {
-    pub identifier: OrderId,
-    pub restaurant_identifier: RestaurantId,
-    pub line_items: Vec<OrderLineItem>,
-    pub reason: Reason,
-    pub r#final: bool,
-}
-
 /// Fact/Event that an order was prepared
 #[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
 pub struct OrderPrepared {
     pub identifier: OrderId,
     pub status: OrderStatus,
-    pub r#final: bool,
-}
-
-/// Fact/Event that an order was not prepared (with reason)
-#[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
-pub struct OrderNotPrepared {
-    pub identifier: OrderId,
-    pub reason: Reason,
     pub r#final: bool,
 }

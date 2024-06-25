@@ -1,9 +1,9 @@
 use fmodel_rust::decider::Decider;
+use pgrx::error;
 
 use crate::domain::api::{
-    OrderNotPlaced, OrderPlaced, Reason, RestaurantCommand, RestaurantCreated, RestaurantEvent,
-    RestaurantId, RestaurantMenu, RestaurantMenuChanged, RestaurantMenuNotChanged, RestaurantName,
-    RestaurantNotCreated,
+    OrderPlaced, RestaurantCommand, RestaurantCreated, RestaurantEvent, RestaurantId,
+    RestaurantMenu, RestaurantMenuChanged, RestaurantName,
 };
 
 /// The state of the Restaurant is represented by this struct. It belongs to the Domain layer.
@@ -26,13 +26,7 @@ pub fn restaurant_decider<'a>() -> RestaurantDecider<'a> {
         decide: Box::new(|command, state| match command {
             RestaurantCommand::CreateRestaurant(command) => {
                 if state.is_some() {
-                    vec![RestaurantEvent::NotCreated(RestaurantNotCreated {
-                        identifier: command.identifier.to_owned(),
-                        name: command.name.to_owned(),
-                        menu: command.menu.to_owned(),
-                        reason: Reason("Restaurant already exists".to_string()),
-                        r#final: false,
-                    })]
+                    error!("Failed to create the Restaurant. Restaurant already exists!");
                 } else {
                     vec![RestaurantEvent::Created(RestaurantCreated {
                         identifier: command.identifier.to_owned(),
@@ -50,12 +44,7 @@ pub fn restaurant_decider<'a>() -> RestaurantDecider<'a> {
                         r#final: false,
                     })]
                 } else {
-                    vec![RestaurantEvent::MenuNotChanged(RestaurantMenuNotChanged {
-                        identifier: command.identifier.to_owned(),
-                        menu: command.menu.to_owned(),
-                        reason: Reason("Restaurant does not exist".to_string()),
-                        r#final: false,
-                    })]
+                    error!("Failed to change the menu. Restaurant does not exist!");
                 }
             }
             RestaurantCommand::PlaceOrder(command) => {
@@ -67,13 +56,7 @@ pub fn restaurant_decider<'a>() -> RestaurantDecider<'a> {
                         r#final: false,
                     })]
                 } else {
-                    vec![RestaurantEvent::OrderNotPlaced(OrderNotPlaced {
-                        identifier: command.identifier.to_owned(),
-                        order_identifier: command.order_identifier.to_owned(),
-                        line_items: command.line_items.to_owned(),
-                        reason: Reason("Restaurant does not exist".to_string()),
-                        r#final: false,
-                    })]
+                    error!("Failed to place the order. Restaurant does not exist!");
                 }
             }
         }),
@@ -85,24 +68,18 @@ pub fn restaurant_decider<'a>() -> RestaurantDecider<'a> {
                 name: event.name.to_owned(),
                 menu: event.menu.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the Restaurant, for example.
-            RestaurantEvent::NotCreated(..) => state.clone(),
 
             RestaurantEvent::MenuChanged(event) => state.clone().map(|s| Restaurant {
                 identifier: event.identifier.to_owned(),
                 name: s.name,
                 menu: event.menu.to_owned(),
             }),
-            // On error event we choose NOT TO change the state of the Restaurant, for example.
-            RestaurantEvent::MenuNotChanged(..) => state.clone(),
 
             RestaurantEvent::OrderPlaced(event) => state.clone().map(|s| Restaurant {
                 identifier: event.identifier.to_owned(),
                 name: s.name,
                 menu: s.menu,
             }),
-            // On error event we choose NOT TO change the state of the Restaurant, for example.
-            RestaurantEvent::OrderNotPlaced(..) => state.clone(),
         }),
 
         // The initial state of the decider

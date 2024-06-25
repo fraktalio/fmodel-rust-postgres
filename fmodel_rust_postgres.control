@@ -1,0 +1,5 @@
+comment = 'fmodel_rust_postgres:  Created by pgrx'
+default_version = '@CARGO_VERSION@'
+module_pathname = '$libdir/fmodel_rust_postgres'
+relocatable = false
+superuser = true

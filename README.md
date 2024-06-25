@@ -12,7 +12,7 @@ The template includes a demo domain model of a `restaurant/order management syst
 ## Event Sourcing
 
 With event sourcing, we delve deeper by capturing every decision or alteration as an event.
-Each new transfer or modification to the account state is meticulously documented, providing a comprehensive audit trail
+Each new transfer or modification to the state is meticulously documented, providing a comprehensive audit trail
 of all activities.
 This affords you a 100% accurate historical record of your domain, enabling you to effortlessly traverse back
 in time and review the state at any given moment.

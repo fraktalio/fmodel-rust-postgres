@@ -1,10 +1,11 @@
 use fmodel_rust::view::View;
+use pgrx::PostgresType;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::api::{RestaurantEvent, RestaurantId, RestaurantMenu, RestaurantName};
 
 /// The state of the Restaurant View is represented by this struct. It belongs to the Domain layer.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(PostgresType, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct RestaurantViewState {
     pub identifier: RestaurantId,
     pub name: RestaurantName,
@@ -12,7 +13,7 @@ pub struct RestaurantViewState {
 }
 
 /// A convenient type alias for the Restaurant view
-type RestaurantView<'a> = View<'a, Option<RestaurantViewState>, RestaurantEvent>;
+pub type RestaurantView<'a> = View<'a, Option<RestaurantViewState>, RestaurantEvent>;
 
 /// View represents the event handling algorithm. It belongs to the Domain layer.
 pub fn restaurant_view<'a>() -> RestaurantView<'a> {

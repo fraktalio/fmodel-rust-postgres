@@ -71,7 +71,7 @@ where
             version = Some(ver);
             current_events.push(event);
         }
-        let new_events = self.decider.compute_new_events(&current_events, command);
+        let new_events = self.compute_new_events(&current_events, command);
         self.repository.save(&new_events, &version)
     }
 }

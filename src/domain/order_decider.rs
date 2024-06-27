@@ -3,7 +3,7 @@ use pgrx::error;
 
 use crate::domain::api::{
     OrderCommand, OrderCreated, OrderEvent, OrderId, OrderLineItem, OrderPrepared, OrderStatus,
-    Reason, RestaurantId,
+    RestaurantId,
 };
 
 /// The state of the Order is represented by this struct. It belongs to the Domain layer.

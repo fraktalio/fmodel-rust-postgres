@@ -1,8 +1,15 @@
 use crate::application::order_restaurant_aggregate::OrderAndRestaurantAggregate;
-use crate::domain::{order_restaurant_decider, order_restaurant_saga, Command, Event};
-use crate::framework::infrastructure::errors::ErrorMessage;
+use crate::application::restaurant_materialized_view::RestaurantMeterializedView;
+use crate::domain::restaurant_view::restaurant_view;
+use crate::domain::{
+    event_to_restaurant_event, order_restaurant_decider, order_restaurant_saga, Command, Event,
+};
+use crate::framework::infrastructure::errors::{ErrorMessage, TriggerError};
+use crate::framework::infrastructure::to_payload;
 use crate::infrastructure::order_restaurant_event_repository::OrderAndRestaurantEventRepository;
+use crate::infrastructure::restaurant_view_state_repository::RestaurantViewStateRepository;
 use pgrx::prelude::*;
+use pgrx::JsonB;
 
 mod application;
 mod domain;
@@ -11,14 +18,15 @@ mod infrastructure;
 
 pg_module_magic!();
 
-/// Declare SQL (from a file) to be included in generated extension script.
+// Declare SQL (from a file) to be included in generated extension script.
+// Defines the `event_sourcing` table(s) and indexes.
 extension_sql_file!(
     "../sql/event_sourcing.sql",
     name = "event_sourcing",
-    bootstrap
+    bootstrap // Communicates that this is SQL intended to go before all other generated SQL.
 );
 
-/// Command handler for the whole domain / both, orders and restaurants included.
+/// Command handler for the whole domain / orders and restaurants combined.
 /// It handles a single command and returns a list of events that were generated and persisted.
 #[pg_extern]
 fn handle(command: Command) -> Result<Vec<Event>, ErrorMessage> {
@@ -33,7 +41,7 @@ fn handle(command: Command) -> Result<Vec<Event>, ErrorMessage> {
         .map(|res| res.into_iter().map(|(e, _)| e.clone()).collect())
 }
 
-/// Compound command handler for the domain / both, orders and restaurants included
+/// Compound command handler for the domain / orders and restaurants combined
 /// It handles a list of commands and returns a list of events that were generated and persisted.
 /// All commands are executed in a single transaction, and the effects/events of the previous commands are visible to the subsequent commands.
 /// If any of the commands fail, the transaction is rolled back, and no events are persisted.
@@ -51,18 +59,64 @@ fn handle_all(commands: Vec<Command>) -> Result<Vec<Event>, ErrorMessage> {
         .map(|res| res.into_iter().map(|(e, _)| e.clone()).collect())
 }
 
-// Test data: RestaurantCreated
+/// Event handler for Restaurant events / Trigger function that handles events and updates the materialized view.
+#[pg_trigger]
+fn handle_restaurant_events<'a>(
+    trigger: &'a PgTrigger<'a>,
+) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, TriggerError> {
+    let new = trigger
+        .new()
+        .ok_or(TriggerError::NullTriggerTuple)?
+        .into_owned();
+    let event: JsonB = new
+        .get_by_name::<JsonB>("data")?
+        .ok_or(TriggerError::NullTriggerTuple)?;
+    let materialized_view =
+        RestaurantMeterializedView::new(RestaurantViewStateRepository::new(), restaurant_view());
+
+    match event_to_restaurant_event(
+        &to_payload::<Event>(event)
+            .map_err(|err| TriggerError::EventHandlingError(err.to_string()))?,
+    ) {
+        // If the event is not a Restaurant event, we do nothing
+        None => return Ok(Some(new)),
+        // If the event is a Restaurant event, we handle it
+        Some(e) => {
+            materialized_view
+                .handle(&e)
+                .map_err(|err| TriggerError::EventHandlingError(err.message))?;
+        }
+    }
+    Ok(Some(new))
+}
+
+// Materialized view / Table for the Restaurant query side model
+// This table is updated by the trigger function / event handler `handle_restaurant_events`
 extension_sql!(
     r#"
-    INSERT INTO events (event, event_id, decider, decider_id, data, command_id, previous_id, final)
-    VALUES ('RestaurantCreated', '5f8bdf95-c95b-4e4b-8535-d2ac4663bea9', 'Restaurant', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', '{"type": "RestaurantCreated","identifier": "e48d4d9e-403e-453f-b1ba-328e0ce23737", "name": "Pljeska", "menu": {"menu_id": "02f09a3f-1624-3b1d-8409-44eff7708210", "items": [{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "supa","price": 10},{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "sarma","price": 20 }],"cuisine": "Vietnamese"}, "final": false }', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', NULL, FALSE);
+    CREATE TABLE IF NOT EXISTS restaurants (
+                                           id UUID PRIMARY KEY,
+                                           data JSONB
+    );
+
+    CREATE TRIGGER restaurant_event_handler_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE handle_restaurant_events();
     "#,
-    name = "data_insert",
+    name = "restaurant_event_handler_trigger",
+    requires = [handle_restaurant_events]
 );
 
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]
 mod tests {
+    // Test data: RestaurantCreated
+    extension_sql!(
+        r#"
+    INSERT INTO events (event, event_id, decider, decider_id, data, command_id, previous_id, final)
+    VALUES ('RestaurantCreated', '5f8bdf95-c95b-4e4b-8535-d2ac4663bea9', 'Restaurant', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', '{"type": "RestaurantCreated","identifier": "e48d4d9e-403e-453f-b1ba-328e0ce23737", "name": "Pljeska", "menu": {"menu_id": "02f09a3f-1624-3b1d-8409-44eff7708210", "items": [{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "supa","price": 10},{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "sarma","price": 20 }],"cuisine": "Vietnamese"}, "final": false }', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', NULL, FALSE);
+    "#,
+        name = "data_insert",
+        requires = ["restaurant_event_handler_trigger"]
+    );
     use crate::domain::api::{
         ChangeRestaurantMenu, CreateRestaurant, OrderCreated, OrderLineItem, OrderPlaced,
         PlaceOrder, RestaurantCreated, RestaurantMenuChanged,

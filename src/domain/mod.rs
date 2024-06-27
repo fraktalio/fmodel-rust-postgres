@@ -200,3 +200,13 @@ pub fn sum_to_event(event: &Sum<RestaurantEvent, OrderEvent>) -> Event {
         },
     }
 }
+
+pub fn event_to_restaurant_event(event: &Event) -> Option<RestaurantEvent> {
+    match event {
+        Event::RestaurantCreated(e) => Some(RestaurantEvent::Created(e.to_owned())),
+        Event::RestaurantMenuChanged(e) => Some(RestaurantEvent::MenuChanged(e.to_owned())),
+        Event::OrderPlaced(e) => Some(RestaurantEvent::OrderPlaced(e.to_owned())),
+        Event::OrderCreated(_e) => None,
+        Event::OrderPrepared(_e) => None,
+    }
+}

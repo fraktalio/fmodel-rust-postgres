@@ -1,5 +1,7 @@
+use crate::framework::domain::api::Identifier;
 use pgrx::{PostgresEnum, PostgresType};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
 
 // ########################################################
@@ -10,6 +12,12 @@ use uuid::Uuid;
 // Similarly, in Rust, the 'newtype' idiom brings compile-time guarantees that the correct value type is supplied. The 'newtype' is a struct that wraps a single value and provides a new type for that value. A 'newtype' is the same as the underlying type at runtime, so it will not introduce any performance overhead.
 #[derive(PostgresType, Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct RestaurantId(pub Uuid);
+impl fmt::Display for RestaurantId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Delegate the formatting to the inner Uuid
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(PostgresType, Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct RestaurantName(pub String);
@@ -170,6 +178,16 @@ pub enum RestaurantEvent {
     OrderPlaced(OrderPlaced),
 }
 
+impl Identifier for RestaurantEvent {
+    fn identifier(&self) -> Uuid {
+        match self {
+            RestaurantEvent::Created(e) => e.identifier.0,
+            RestaurantEvent::MenuChanged(e) => e.identifier.0,
+            RestaurantEvent::OrderPlaced(e) => e.identifier.0,
+        }
+    }
+}
+
 /// Fact/Event that a restaurant was created
 #[derive(PostgresType, Serialize, Deserialize, Debug, PartialEq, Clone, Eq)]
 pub struct RestaurantCreated {
@@ -204,6 +222,15 @@ pub struct OrderPlaced {
 pub enum OrderEvent {
     Created(OrderCreated),
     Prepared(OrderPrepared),
+}
+
+impl Identifier for OrderEvent {
+    fn identifier(&self) -> Uuid {
+        match self {
+            OrderEvent::Created(e) => e.identifier.0,
+            OrderEvent::Prepared(e) => e.identifier.0,
+        }
+    }
 }
 
 /// Fact/Event that an order was created

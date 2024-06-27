@@ -1,19 +1,14 @@
 use crate::framework::domain::api::{DeciderType, EventType, Identifier, IsFinal};
 use crate::framework::infrastructure::errors::ErrorMessage;
+use crate::framework::infrastructure::to_payload;
 use pgrx::{IntoDatum, JsonB, PgBuiltInOids, Spi, Uuid};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::Debug;
 use uuid::Uuid as UUID;
 
-/// Converts a `JsonB` to an event payload type.
-fn to_event<E: DeserializeOwned>(jsonb: JsonB) -> Result<E, ErrorMessage> {
-    let value = jsonb.0.clone();
-    serde_json::from_value(value).map_err(|err| ErrorMessage {
-        message: "Failed to deserialize event: ".to_string() + &err.to_string(),
-    })
-}
-/// A trait for event repositories.
+/// A trait for event repositories / the command side of the CQRS pattern.
+/// Default implementation includes fetching and saving events.
 pub trait EventRepository<C, E>
 where
     C: Identifier,
@@ -55,7 +50,7 @@ where
                                 .to_string(),
                     })?;
 
-                results.push((to_event(data)?, UUID::from_bytes(*event_id.as_bytes())));
+                results.push((to_payload(data)?, UUID::from_bytes(*event_id.as_bytes())));
             }
             Ok(results)
         })
@@ -139,7 +134,7 @@ where
                                     .to_string(),
                         })?;
 
-                    results.push((to_event(data)?, UUID::from_bytes(*event_id.as_bytes())));
+                    results.push((to_payload(data)?, UUID::from_bytes(*event_id.as_bytes())));
                 }
                 version = Some(event_id);
             }
@@ -149,6 +144,7 @@ where
 }
 
 /// A trait for event orchestrating repositories.
+/// Default implementation includes fetching events, fetching latest version and saving events.
 pub trait EventOrchestratingRepository<C, E>
 where
     C: Identifier,
@@ -196,7 +192,7 @@ where
                             "Failed to fetch event id (map `data` to `JsonB`): No event id found"
                                 .to_string(),
                     })?;
-                results.push((to_event(data)?, UUID::from_bytes(*event_id.as_bytes())));
+                results.push((to_payload(data)?, UUID::from_bytes(*event_id.as_bytes())));
             }
             Ok(results)
         })
@@ -313,7 +309,7 @@ where
                                 "Failed to save event id (map `data` to `JsonB`): No event id found"
                                     .to_string(),
                         })?;
-                    results.push((to_event(data)?, UUID::from_bytes(*event_id.as_bytes())));
+                    results.push((to_payload(data)?, UUID::from_bytes(*event_id.as_bytes())));
                 }
             }
             Ok(results)

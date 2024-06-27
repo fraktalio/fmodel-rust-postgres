@@ -210,3 +210,13 @@ pub fn event_to_restaurant_event(event: &Event) -> Option<RestaurantEvent> {
         Event::OrderPrepared(_e) => None,
     }
 }
+
+pub fn event_to_order_event(event: &Event) -> Option<OrderEvent> {
+    match event {
+        Event::RestaurantCreated(_e) => None,
+        Event::RestaurantMenuChanged(_e) => None,
+        Event::OrderPlaced(_e) => None,
+        Event::OrderCreated(e) => Some(OrderEvent::Created(e.to_owned())),
+        Event::OrderPrepared(e) => Some(OrderEvent::Prepared(e.to_owned())),
+    }
+}

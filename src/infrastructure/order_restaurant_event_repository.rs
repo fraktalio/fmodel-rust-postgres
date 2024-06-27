@@ -5,6 +5,7 @@ use crate::framework::infrastructure::event_repository::EventOrchestratingReposi
 pub struct OrderAndRestaurantEventRepository {}
 
 /// Implementation of the event orchestrating repository for the restaurant and order domain(s).
+/// We use default implementation from the trait. How cool is that?
 impl EventOrchestratingRepository<Command, Event> for OrderAndRestaurantEventRepository {}
 
 impl OrderAndRestaurantEventRepository {

@@ -13,7 +13,7 @@ pub struct OrderViewState {
 }
 
 /// A convenient type alias for the Order view
-type OrderView<'a> = View<'a, Option<OrderViewState>, OrderEvent>;
+pub type OrderView<'a> = View<'a, Option<OrderViewState>, OrderEvent>;
 
 /// View represents the event handling algorithm. It belongs to the Domain layer.
 pub fn order_view<'a>() -> OrderView<'a> {

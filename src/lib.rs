@@ -1,12 +1,16 @@
+use crate::application::order_materialized_view::OrderMeterializedView;
 use crate::application::order_restaurant_aggregate::OrderAndRestaurantAggregate;
 use crate::application::restaurant_materialized_view::RestaurantMeterializedView;
+use crate::domain::order_view::order_view;
 use crate::domain::restaurant_view::restaurant_view;
 use crate::domain::{
-    event_to_restaurant_event, order_restaurant_decider, order_restaurant_saga, Command, Event,
+    event_to_order_event, event_to_restaurant_event, order_restaurant_decider,
+    order_restaurant_saga, Command, Event,
 };
 use crate::framework::infrastructure::errors::{ErrorMessage, TriggerError};
 use crate::framework::infrastructure::to_payload;
 use crate::infrastructure::order_restaurant_event_repository::OrderAndRestaurantEventRepository;
+use crate::infrastructure::order_view_state_repository::OrderViewStateRepository;
 use crate::infrastructure::restaurant_view_state_repository::RestaurantViewStateRepository;
 use pgrx::prelude::*;
 use pgrx::JsonB;
@@ -59,7 +63,7 @@ fn handle_all(commands: Vec<Command>) -> Result<Vec<Event>, ErrorMessage> {
         .map(|res| res.into_iter().map(|(e, _)| e.clone()).collect())
 }
 
-/// Event handler for Restaurant events / Trigger function that handles events and updates the materialized view.
+/// Event handler for Restaurant events / Trigger function that handles restaurant related events and updates the materialized view/table.
 #[pg_trigger]
 fn handle_restaurant_events<'a>(
     trigger: &'a PgTrigger<'a>,
@@ -105,6 +109,52 @@ extension_sql!(
     requires = [handle_restaurant_events]
 );
 
+/// Event handler for Order events / Trigger function that handles order related events and updates the materialized view/table.
+#[pg_trigger]
+fn handle_order_events<'a>(
+    trigger: &'a PgTrigger<'a>,
+) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, TriggerError> {
+    let new = trigger
+        .new()
+        .ok_or(TriggerError::NullTriggerTuple)?
+        .into_owned();
+    let event: JsonB = new
+        .get_by_name::<JsonB>("data")?
+        .ok_or(TriggerError::NullTriggerTuple)?;
+    let materialized_view =
+        OrderMeterializedView::new(OrderViewStateRepository::new(), order_view());
+
+    match event_to_order_event(
+        &to_payload::<Event>(event)
+            .map_err(|err| TriggerError::EventHandlingError(err.to_string()))?,
+    ) {
+        // If the event is not a Restaurant event, we do nothing
+        None => return Ok(Some(new)),
+        // If the event is a Restaurant event, we handle it
+        Some(e) => {
+            materialized_view
+                .handle(&e)
+                .map_err(|err| TriggerError::EventHandlingError(err.message))?;
+        }
+    }
+    Ok(Some(new))
+}
+
+// Materialized view / Table for the Order query side model
+// This table is updated by the trigger function / event handler `handle_order_events`
+extension_sql!(
+    r#"
+    CREATE TABLE IF NOT EXISTS orders (
+                                           id UUID PRIMARY KEY,
+                                           data JSONB
+    );
+
+    CREATE TRIGGER order_event_handler_trigger AFTER INSERT ON events FOR EACH ROW EXECUTE PROCEDURE handle_order_events();
+    "#,
+    name = "order_event_handler_trigger",
+    requires = [handle_order_events]
+);
+
 #[cfg(any(test, feature = "pg_test"))]
 #[pg_schema]
 mod tests {
@@ -115,7 +165,10 @@ mod tests {
     VALUES ('RestaurantCreated', '5f8bdf95-c95b-4e4b-8535-d2ac4663bea9', 'Restaurant', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', '{"type": "RestaurantCreated","identifier": "e48d4d9e-403e-453f-b1ba-328e0ce23737", "name": "Pljeska", "menu": {"menu_id": "02f09a3f-1624-3b1d-8409-44eff7708210", "items": [{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "supa","price": 10},{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "sarma","price": 20 }],"cuisine": "Vietnamese"}, "final": false }', 'e48d4d9e-403e-453f-b1ba-328e0ce23737', NULL, FALSE);
     "#,
         name = "data_insert",
-        requires = ["restaurant_event_handler_trigger"]
+        requires = [
+            "restaurant_event_handler_trigger",
+            "order_event_handler_trigger"
+        ]
     );
     use crate::domain::api::{
         ChangeRestaurantMenu, CreateRestaurant, OrderCreated, OrderLineItem, OrderPlaced,

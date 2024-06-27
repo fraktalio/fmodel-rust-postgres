@@ -24,6 +24,12 @@ pub struct RestaurantName(pub String);
 
 #[derive(PostgresType, Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct OrderId(pub Uuid);
+impl fmt::Display for OrderId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Delegate the formatting to the inner Uuid
+        write!(f, "{}", self.0)
+    }
+}
 
 #[derive(PostgresType, Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Reason(pub String);

@@ -23,8 +23,23 @@ in time and review the state at any given moment.
 This project is using:
 
 - [`rust` programming language](https://www.rust-lang.org/) to build a high-performance, reliable, and efficient system.
-- [fmodel-rust library](https://github.com/fraktalio/fmodel-rust) to implement tactical Domain-Driven Design patterns, optimised for Event Sourcing.
+- [`f{model}` rust library](https://github.com/fraktalio/fmodel-rust) to implement tactical Domain-Driven Design patterns, optimised for Event Sourcing.
 - [pgrx](https://github.com/pgcentralfoundation/pgrx) to simplify the creation of custom Postgres extensions and bring `logic` closer to your data(base).
+
+## f{model}
+
+[`f{model}`](https://github.com/fraktalio/fmodel-rust/blob/main/README.md) library provides just enough tactical Domain-Driven Design patterns, optimised for Event Sourcing and CQRS.
+
+- algebraic data types form the structure of our data (commands, state, and events).
+- functions/lambda offers the algebra of manipulating the data in a compositional manner, effectively modeling the behavior.
+
+- This leads to modularity in design and a clear separation of the data’s structure and functions/behaviour of the data/entity.
+
+`f{model}` library offers generic and abstract components to specialize in for your specific case/expected behavior.
+
+[Read more](https://github.com/fraktalio/fmodel-rust/blob/main/README.md)
+
+
 
 ## Requirements
 - [Rust](https://www.rust-lang.org/tools/install)

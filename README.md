@@ -48,17 +48,40 @@ This project is using:
 
 > No manual Postgres database installation is required.
 
-## Test it / Run it
+## Test it
 Run tests:
 
 ```shell
 cargo pgrx test
 ```
 
-Compile/install extension to a pgrx-managed Postgres instance and start psql:
+## Run it
+Compile/install extension to a pgrx-managed Postgres instance and start psql console:
 ```shell
 cargo pgrx run
 ```
+
+Now, you can run the following SQL commands in the psql console:
+
+1. Load the extension:
+```sql
+create extension fmodel_rust_postgres;
+```
+
+2. Send commands to the system:
+
+> Observe how the Commands are formatted in JSON format.
+
+Create a restaurant:
+```sql
+select handle('{"type": "CreateRestaurant","identifier": "e48d4d9e-403e-453f-b1ba-328e0ce23737", "name": "Joe", "menu": {"menu_id": "02f09a3f-1624-3b1d-8409-44eff7708210", "items": [{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "supa","price": 10},{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "sarma","price": 20 }],"cuisine": "Vietnamese"}}'::Command);
+```
+
+Place an order at the restaurant:
+```sql
+select handle('{"type": "PlaceOrder","identifier": "e48d4d9e-403e-453f-b1ba-328e0ce23737", "order_identifier": "afd909c6-f8f3-49b2-af7f-833e933cbab4", "line_items": [{"id": "02f09a3f-1624-3b1d-8409-44eff7708210","quantity": 1, "menu_item_id": "02f09a3f-1624-3b1d-8409-44eff7708210", "name": "supa", "price": 10},{"id": "02f09a3f-1624-3b1d-8409-44eff7708210", "quantity": 1, "menu_item_id": "02f09a3f-1624-3b1d-8409-44eff7708210","name": "sarma","price": 20 }]}'::Command);
+```
+
 
 Confused? Run `cargo pgrx help`
 

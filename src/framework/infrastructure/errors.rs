@@ -1,5 +1,5 @@
-use pgrx::prelude::*;
 use pgrx::datum::TryFromDatumError;
+use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;

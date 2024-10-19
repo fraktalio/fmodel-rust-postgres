@@ -4,11 +4,10 @@ version = "1.0.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
 
 [features]
 default = ["pg15"]
-pg11 = ["pgrx/pg11", "pgrx-tests/pg11" ]
 pg12 = ["pgrx/pg12", "pgrx-tests/pg12" ]
 pg13 = ["pgrx/pg13", "pgrx-tests/pg13" ]
 pg14 = ["pgrx/pg14", "pgrx-tests/pg14" ]
@@ -17,15 +16,15 @@ pg16 = ["pgrx/pg16", "pgrx-tests/pg16" ]
 pg_test = []
 
 [dependencies]
-pgrx = "=0.11.4"
-serde = { version = "1.0.203", features = ["derive"] }
+pgrx = "0.12.6"
+serde = { version = "1.0.210", features = ["derive"] }
 fmodel-rust = "0.7.0"
-serde_json = "1.0.117"
-uuid = { version = "1.8.0", features = ["serde", "v4"] }
-thiserror = "1.0.61"
+serde_json = "1.0.131"
+uuid = { version = "1.11.0", features = ["serde", "v4"] }
+thiserror = "1.0.64"
 
 [dev-dependencies]
-pgrx-tests = "=0.11.4"
+pgrx-tests = "0.12.6"
 
 [profile.dev]
 panic = "unwind"
@@ -35,3 +34,7 @@ panic = "unwind"
 opt-level = 3
 lto = "fat"
 codegen-units = 1
+
+[[bin]]
+name = "pgrx_embed_fmodel_rust_postgres"
+path = "./src/bin/pgrx_embed.rs"

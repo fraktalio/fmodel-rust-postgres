@@ -17,8 +17,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Start PostgreSQL ${{ matrix.pg }}
         run: pg-start ${{ matrix.pg }}
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
       - name: Test on PostgreSQL ${{ matrix.pg }}
         run: pgrx-build-test
 

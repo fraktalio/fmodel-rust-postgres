@@ -3,6 +3,7 @@ use pgrx::{PostgresEnum, PostgresType};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
+use pgrx::FromDatum;
 
 // ########################################################
 // #################### Value Objects #####################

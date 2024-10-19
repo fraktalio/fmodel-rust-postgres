@@ -44,6 +44,9 @@ This project is using:
 ## Requirements
 - [Rust](https://www.rust-lang.org/tools/install)
 - [PGRX subcommand](https://github.com/pgcentralfoundation/pgrx?tab=readme-ov-file#getting-started): `cargo install --locked cargo-pgrx`
+- Then you can run `cargo pgrx upgrade` in your extension's crate to update its dependencies.
+- (Mac os) `brew install git icu4c pkg-config`
+- (Mac os) `export PKG_CONFIG_PATH=/opt/homebrew/opt/icu4c/lib/pkgconfig`
 - Run `cargo pgrx init` once, to properly configure the pgrx development environment. It downloads the latest releases of supported Postgres versions, configures them for debugging, compiles them with assertions, and installs them to `"${PGRX_HOME}"`. These include all contrib extensions and tools included with Postgres. Other cargo pgrx commands such as `run` and `test` will manage and use these installations on your behalf.
 
 > No manual Postgres database installation is required.

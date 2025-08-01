@@ -24,7 +24,7 @@ uuid = { version = "1.11.0", features = ["serde", "v4"] }
 thiserror = "1.0.64"
 
 [dev-dependencies]
-pgrx-tests = "0.12.6"
+pgrx-tests = "0.16.0"
 
 [profile.dev]
 panic = "unwind"

@@ -16,7 +16,7 @@ pg16 = ["pgrx/pg16", "pgrx-tests/pg16" ]
 pg_test = []
 
 [dependencies]
-pgrx = "0.12.6"
+pgrx = "0.16.0"
 serde = { version = "1.0.210", features = ["derive"] }
 fmodel-rust = "0.7.0"
 serde_json = "1.0.131"

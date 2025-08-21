@@ -1,9 +1,5 @@
-use pgrx::datum::TryFromDatumError;
-use pgrx::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::fmt;
-use std::num::TryFromIntError;
 
 /// Error message to be returned to the client
 #[derive(Serialize, Deserialize)]
@@ -25,19 +21,12 @@ impl fmt::Debug for ErrorMessage {
     }
 }
 
-/// Implement Error for ErrorMessage
-impl Error for ErrorMessage {}
-
-#[derive(thiserror::Error, Debug)]
-pub enum TriggerError {
-    #[error("Null Trigger Tuple found")]
-    NullTriggerTuple,
-    #[error("PgHeapTuple error: {0}")]
-    PgHeapTuple(#[from] PgHeapTupleError),
-    #[error("TryFromDatumError error: {0}")]
-    TryFromDatum(#[from] TryFromDatumError),
-    #[error("TryFromInt error: {0}")]
-    TryFromInt(#[from] TryFromIntError),
-    #[error("Event Handling Error: {0}")]
-    EventHandlingError(String),
+// Implementing `From<E>` for your error type allows automatic conversion from any error type `E` that implements `std::error::Error` into your custom error type. This is very useful when your code interacts with multiple libraries or modules that produce different error types.
+// It enables the use of the `?` operator seamlessly, converting various error types into your unified error type without boilerplate `map_err()` calls.
+impl<E: std::error::Error> From<E> for ErrorMessage {
+    fn from(value: E) -> Self {
+        ErrorMessage {
+            message: value.to_string(),
+        }
+    }
 }

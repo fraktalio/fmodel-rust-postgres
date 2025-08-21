@@ -7,8 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "lib"]
 
 [features]
-default = ["pg15"]
-pg12 = ["pgrx/pg12", "pgrx-tests/pg12" ]
+default = ["pg16"]
 pg13 = ["pgrx/pg13", "pgrx-tests/pg13" ]
 pg14 = ["pgrx/pg14", "pgrx-tests/pg14" ]
 pg15 = ["pgrx/pg15", "pgrx-tests/pg15" ]
@@ -16,15 +15,15 @@ pg16 = ["pgrx/pg16", "pgrx-tests/pg16" ]
 pg_test = []
 
 [dependencies]
-pgrx = "0.12.6"
-serde = { version = "1.0.210", features = ["derive"] }
-fmodel-rust = "0.7.0"
-serde_json = "1.0.131"
-uuid = { version = "1.11.0", features = ["serde", "v4"] }
-thiserror = "1.0.64"
+pgrx = "0.16.0"
+serde = { version = "1.0.217", features = ["derive"] }
+fmodel-rust = "0.8.1"
+serde_json = "1.0.138"
+uuid = { version = "1.13.1", features = ["serde", "v4"] }
+chrono = {version = "0.4.41", features = ["serde"]}
 
 [dev-dependencies]
-pgrx-tests = "0.12.6"
+pgrx-tests = "0.16.0"
 
 [profile.dev]
 panic = "unwind"

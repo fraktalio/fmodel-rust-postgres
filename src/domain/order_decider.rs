@@ -1,9 +1,11 @@
 use fmodel_rust::decider::Decider;
-use pgrx::error;
 
-use crate::domain::api::{
-    OrderCommand, OrderCreated, OrderEvent, OrderId, OrderLineItem, OrderPrepared, OrderStatus,
-    RestaurantId,
+use crate::{
+    domain::api::{
+        OrderCommand, OrderCreated, OrderEvent, OrderId, OrderLineItem, OrderPrepared, OrderStatus,
+        RestaurantId,
+    },
+    framework::domain::api::DomainError,
 };
 
 /// The state of the Order is represented by this struct. It belongs to the Domain layer.
@@ -16,7 +18,7 @@ pub struct Order {
 }
 
 /// A convenient type alias for the Order decider
-pub type OrderDecider<'a> = Decider<'a, OrderCommand, Option<Order>, OrderEvent>;
+pub type OrderDecider<'a> = Decider<'a, OrderCommand, Option<Order>, OrderEvent, DomainError>;
 
 /// Decider is a datatype/struct that represents the main decision-making algorithm. It belongs to the Domain layer.
 pub fn order_decider<'a>() -> OrderDecider<'a> {
@@ -26,15 +28,17 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
         decide: Box::new(|command, state| match command {
             OrderCommand::Create(command) => {
                 if state.is_some() {
-                    error!("Failed to create the Order. Order already exists!")
+                    Err(DomainError::OrderNotCreated(
+                        "Failed to create the Order. Order already exists!".to_string(),
+                    ))
                 } else {
-                    vec![OrderEvent::Created(OrderCreated {
+                    Ok(vec![OrderEvent::Created(OrderCreated {
                         identifier: command.identifier.to_owned(),
                         restaurant_identifier: command.restaurant_identifier.to_owned(),
                         status: OrderStatus::Created,
                         line_items: command.line_items.to_owned(),
                         r#final: false,
-                    })]
+                    })])
                 }
             }
             OrderCommand::MarkAsPrepared(command) => {
@@ -42,13 +46,15 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
                     .clone()
                     .is_some_and(|s| OrderStatus::Created == s.status)
                 {
-                    vec![OrderEvent::Prepared(OrderPrepared {
+                    Ok(vec![OrderEvent::Prepared(OrderPrepared {
                         identifier: command.identifier.to_owned(),
                         status: OrderStatus::Prepared,
                         r#final: true,
-                    })]
+                    })])
                 } else {
-                    error!("Failed to mark the order as prepared. Order does not exist or is not in the correct state!");
+                    Err(DomainError::OrderNotPrepared(
+                        "Failed to mark the order as prepared. Order does not exist or is not in the correct state!".to_string(),
+                    ))
                 }
             }
         }),
@@ -68,7 +74,6 @@ pub fn order_decider<'a>() -> OrderDecider<'a> {
                 line_items: s.line_items,
             }),
         }),
-
         // The initial state of the decider
         initial_state: Box::new(|| None),
     }

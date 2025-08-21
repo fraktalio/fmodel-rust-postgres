@@ -6,7 +6,7 @@ use crate::domain::order_decider::{order_decider, Order};
 use crate::domain::order_saga::order_saga;
 use crate::domain::restaurant_decider::{restaurant_decider, Restaurant};
 use crate::domain::restaurant_saga::restaurant_saga;
-use crate::framework::domain::api::{DeciderType, EventType, Identifier, IsFinal};
+use crate::framework::domain::api::{DeciderType, DomainError, EventType, Identifier, IsFinal};
 use api::{
     OrderCreated, OrderEvent, OrderPlaced, OrderPrepared, RestaurantCreated, RestaurantEvent,
     RestaurantMenuChanged,
@@ -29,7 +29,7 @@ pub mod restaurant_view;
 /// A convenient type alias for the combined Decider
 /// This decider is used to combine the Restaurant and Order deciders into a single decider that can handle both Restaurant and Order commands.
 pub type OrderAndRestaurantDecider<'a> =
-    Decider<'a, Command, (Option<Restaurant>, Option<Order>), Event>;
+    Decider<'a, Command, (Option<Restaurant>, Option<Order>), Event, DomainError>;
 
 /// A convenient type alias for the combined Saga
 /// This saga is used to combine the Restaurant and Order choreography sagas into a single orchestrating saga that can handle both Restaurant and Order events, and produce Restaurant and Order commands as a result.
@@ -39,16 +39,15 @@ pub type OrderAndRestaurantSaga<'a> = Saga<'a, Event, Command>;
 pub fn order_restaurant_decider<'a>() -> OrderAndRestaurantDecider<'a> {
     restaurant_decider()
         .combine(order_decider())
-        .map_command(&command_to_sum)
-        .map_event(&event_to_sum, &sum_to_event)
+        .map_command(command_to_sum)
+        .map_event(event_to_sum, sum_to_event)
 }
 
-/// Combined Saga, combining the Restaurant and Order choreography sagas into a single orchestrating saga that can handle both Restaurant and Order events, and produce Restaurant and Order commands as a result.
+/// Merged Saga, merging the Restaurant and Order choreography sagas into a single orchestrating saga that can handle all events, and produce Restaurant and Order commands as a result.
 pub fn order_restaurant_saga<'a>() -> OrderAndRestaurantSaga<'a> {
     restaurant_saga()
-        .combine(order_saga())
-        .map_action_result(&event_to_sum2)
-        .map_action(&sum_to_command)
+        .merge(order_saga())
+        .map_action(sum_to_command)
 }
 
 /// All possible commands in the order&restaurant domains
@@ -138,6 +137,18 @@ impl DeciderType for Event {
     }
 }
 
+impl DeciderType for Command {
+    fn decider_type(&self) -> String {
+        match self {
+            Command::PlaceOrder(_) => "Restaurant".to_string(),
+            Command::CreateOrder(_) => "Order".to_string(),
+            Command::MarkOrderAsPrepared(_) => "Order".to_string(),
+            Command::CreateRestaurant(_) => "Restaurant".to_string(),
+            Command::ChangeRestaurantMenu(_) => "Restaurant".to_string(),
+        }
+    }
+}
+
 /// Mapper functions to convert between the `FModel` Sum type and the more appropriate domain specific Command/API type
 /// This is necessary because the `FModel` Sum type is used to combine the Restaurant and Order deciders into a single decider that can handle both Restaurant and Order commands.
 /// We don't want to expose the `FModel` Sum type to the API, so we need to convert between the `FModel` Sum type and the more appropriate Command/API type.
@@ -160,16 +171,6 @@ pub fn event_to_sum(event: &Event) -> Sum<RestaurantEvent, OrderEvent> {
         Event::OrderPlaced(e) => Sum::First(RestaurantEvent::OrderPlaced(e.to_owned())),
         Event::OrderCreated(e) => Sum::Second(OrderEvent::Created(e.to_owned())),
         Event::OrderPrepared(e) => Sum::Second(OrderEvent::Prepared(e.to_owned())),
-    }
-}
-
-pub fn event_to_sum2(event: &Event) -> Sum<OrderEvent, RestaurantEvent> {
-    match event {
-        Event::RestaurantCreated(e) => Sum::Second(RestaurantEvent::Created(e.to_owned())),
-        Event::RestaurantMenuChanged(e) => Sum::Second(RestaurantEvent::MenuChanged(e.to_owned())),
-        Event::OrderPlaced(e) => Sum::Second(RestaurantEvent::OrderPlaced(e.to_owned())),
-        Event::OrderCreated(e) => Sum::First(OrderEvent::Created(e.to_owned())),
-        Event::OrderPrepared(e) => Sum::First(OrderEvent::Prepared(e.to_owned())),
     }
 }
 

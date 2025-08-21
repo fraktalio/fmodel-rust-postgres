@@ -4,7 +4,7 @@ use crate::framework::domain::api::Identifier;
 use crate::framework::infrastructure::errors::ErrorMessage;
 use crate::framework::infrastructure::to_payload;
 use crate::framework::infrastructure::view_state_repository::ViewStateRepository;
-use pgrx::{IntoDatum, JsonB, PgBuiltInOids, Spi};
+use pgrx::{datum::DatumWithOid, JsonB, Spi, Uuid};
 
 /// RestaurantViewStateRepository struct
 /// View state repository is always very specific to the domain. There is no default implementation in the `ViewStateRepository` trait.
@@ -34,10 +34,9 @@ impl ViewStateRepository<RestaurantEvent, Option<RestaurantViewState>>
                 .select(
                     query,
                     None,
-                    Some(vec![(
-                        PgBuiltInOids::UUIDOID.oid(),
-                        event.identifier().to_string().into_datum(),
-                    )]),
+                    &[DatumWithOid::from(Uuid::from_bytes(
+                        event.identifier().into_bytes(),
+                    ))],
                 )
                 .map_err(|err| ErrorMessage {
                     message: "Failed to fetch the restaurant: ".to_string() + &err.to_string(),
@@ -66,21 +65,15 @@ impl ViewStateRepository<RestaurantEvent, Option<RestaurantViewState>>
             message: "Failed to serialize the restaurant: ".to_string() + &err.to_string(),
         })?;
 
-        Spi::connect(|mut client| {
+        Spi::connect_mut(|client| {
             client
                 .update(
                     "INSERT INTO restaurants (id, data) VALUES ($1, $2) ON CONFLICT (id) DO UPDATE SET data = $2 RETURNING data",
                     None,
-                    Some(vec![
-                        (
-                            PgBuiltInOids::UUIDOID.oid(),
-                            state.identifier.to_string().into_datum(),
-                        ),
-                        (
-                            PgBuiltInOids::JSONBOID.oid(),
-                            JsonB(data).into_datum(),
-                        ),
-                    ]),
+                    &[
+                        DatumWithOid::from(Uuid::from_bytes(state.identifier.0.into_bytes())),
+                        DatumWithOid::from(JsonB(data)),
+                    ],
                 )?
                 .first()
                 .get_one::<JsonB>().map(|o|{ o.map( |it| to_payload(it).unwrap() )})

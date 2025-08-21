@@ -2,13 +2,14 @@
 // ###################### Regular Aggregate ##########################
 // ###################################################################
 
-use crate::framework::domain::api::{DeciderType, EventType, Identifier, IsFinal};
+use crate::framework::domain::api::{DeciderType, DomainError, EventType, Identifier, IsFinal};
 use crate::framework::infrastructure::errors::ErrorMessage;
 use crate::framework::infrastructure::event_repository::{
     EventOrchestratingRepository, EventRepository,
 };
 use fmodel_rust::decider::{Decider, EventComputation};
 use fmodel_rust::saga::Saga;
+use pgrx::info;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -21,8 +22,8 @@ use uuid::Uuid;
 pub struct EventSourcedAggregate<C, S, E, Repository, Decider>
 where
     Repository: EventRepository<C, E>,
-    Decider: EventComputation<C, S, E>,
-    C: Identifier,
+    Decider: EventComputation<C, S, E, DomainError>,
+    C: Identifier + DeciderType,
     E: EventType + Identifier + IsFinal + DeciderType + DeserializeOwned + Serialize,
 {
     repository: Repository,
@@ -31,25 +32,33 @@ where
 }
 
 /// Implementation of the event computation for the event sourced aggregate.
-impl<C, S, E, Repository, Decider> EventComputation<C, S, E>
+impl<C, S, E, Repository, Decider> EventComputation<C, S, E, ErrorMessage>
     for EventSourcedAggregate<C, S, E, Repository, Decider>
 where
     Repository: EventRepository<C, E>,
-    Decider: EventComputation<C, S, E>,
-    C: Identifier,
+    Decider: EventComputation<C, S, E, DomainError>,
+    C: Identifier + DeciderType,
     E: EventType + Identifier + IsFinal + DeciderType + DeserializeOwned + Serialize,
 {
     /// Computes new events based on the current events and the command.
-    fn compute_new_events(&self, current_events: &[E], command: &C) -> Vec<E> {
-        self.decider.compute_new_events(current_events, command)
+    fn compute_new_events(
+        &self,
+        current_events: &[E],
+        command: &C,
+    ) -> Result<Vec<E>, ErrorMessage> {
+        self.decider
+            .compute_new_events(current_events, command)
+            .map_err(|e| ErrorMessage {
+                message: e.to_string(),
+            })
     }
 }
 
 impl<C, S, E, Repository, Decider> EventSourcedAggregate<C, S, E, Repository, Decider>
 where
     Repository: EventRepository<C, E>,
-    Decider: EventComputation<C, S, E>,
-    C: Identifier,
+    Decider: EventComputation<C, S, E, DomainError>,
+    C: Identifier + DeciderType,
     E: EventType + Identifier + IsFinal + DeciderType + DeserializeOwned + Serialize,
 {
     /// Creates a new event sourced aggregate.
@@ -71,7 +80,7 @@ where
             version = Some(ver);
             current_events.push(event);
         }
-        let new_events = self.compute_new_events(&current_events, command);
+        let new_events = self.compute_new_events(&current_events, command)?;
         self.repository.save(&new_events, &version)
     }
 }
@@ -85,7 +94,7 @@ where
 pub struct EventSourcedOrchestratingAggregate<'a, C, S, E, Repository>
 where
     Repository: EventOrchestratingRepository<C, E>,
-    C: Identifier,
+    C: Identifier + DeciderType,
     E: Clone
         + EventType
         + Identifier
@@ -96,17 +105,17 @@ where
         + Debug,
 {
     repository: Repository,
-    decider: Decider<'a, C, S, E>,
+    decider: Decider<'a, C, S, E, DomainError>,
     saga: Saga<'a, E, C>,
     _marker: PhantomData<(C, S, E)>,
 }
 
 /// Implementation of the event computation for the event sourced orchestrating aggregate.
-impl<'a, C, S, E, Repository> EventComputation<C, S, E>
+impl<'a, C, S, E, Repository> EventComputation<C, S, E, ErrorMessage>
     for EventSourcedOrchestratingAggregate<'a, C, S, E, Repository>
 where
     Repository: EventOrchestratingRepository<C, E>,
-    C: Identifier,
+    C: Identifier + DeciderType,
     E: Clone
         + EventType
         + Identifier
@@ -116,15 +125,23 @@ where
         + Serialize
         + Debug,
 {
-    fn compute_new_events(&self, current_events: &[E], command: &C) -> Vec<E> {
+    fn compute_new_events(
+        &self,
+        current_events: &[E],
+        command: &C,
+    ) -> Result<Vec<E>, ErrorMessage> {
         let current_state: S = current_events
             .iter()
+            .filter(|e| e.identifier() == command.identifier())
             .fold((self.decider.initial_state)(), |state, event| {
                 (self.decider.evolve)(&state, event)
             });
 
         // Initial resulting events from the decider's decision.
-        let initial_events = (self.decider.decide)(command, &current_state);
+        let initial_events =
+            (self.decider.decide)(command, &current_state).map_err(|e| ErrorMessage {
+                message: e.to_string(),
+            })?;
 
         // Commands to process derived from initial resulting events.
         let commands_to_process: Vec<C> = initial_events
@@ -143,23 +160,24 @@ where
                     .iter()
                     .map(|(e, _)| e.clone())
                     .collect::<Vec<E>>(),
+                current_events.to_vec(),
                 initial_events.clone(),
             ]
             .concat();
 
             // Recursively compute new events and extend the accumulated events list.
-            let new_events = self.compute_new_events(&previous_events, command);
+            let new_events = self.compute_new_events(&previous_events, command)?;
             all_events.extend(new_events);
         }
 
-        all_events
+        Ok(all_events)
     }
 }
 
 impl<'a, C, S, E, Repository> EventSourcedOrchestratingAggregate<'a, C, S, E, Repository>
 where
     Repository: EventOrchestratingRepository<C, E>,
-    C: Identifier,
+    C: Identifier + DeciderType,
     E: Clone
         + EventType
         + Identifier
@@ -172,7 +190,7 @@ where
     /// Creates a new event sourced orchestrating aggregate.
     pub fn new(
         repository: Repository,
-        decider: Decider<'a, C, S, E>,
+        decider: Decider<'a, C, S, E, DomainError>,
         saga: Saga<'a, E, C>,
     ) -> Self {
         EventSourcedOrchestratingAggregate {
@@ -190,7 +208,7 @@ where
             .into_iter()
             .map(|(e, _)| e)
             .collect();
-        let new_events = self.compute_new_events(&events, command);
+        let new_events = self.compute_new_events(&events, command)?;
         self.repository.save(&new_events)
     }
 
@@ -213,10 +231,17 @@ where
             let combined_events: Vec<E> = fetched_events
                 .into_iter()
                 .chain(all_new_events.iter().cloned())
+                //.filter(|e|e.identifier() == command.identifier())
                 .collect();
 
+            info!(
+                "Combined events for command {}: {:?}",
+                command.identifier(),
+                combined_events
+            );
+
             // Compute new events based on the combined events and the current command
-            let new_events = self.compute_new_events(&combined_events, command);
+            let new_events = self.compute_new_events(&combined_events, command)?;
 
             // Accumulate all new events
             all_new_events.extend(new_events);

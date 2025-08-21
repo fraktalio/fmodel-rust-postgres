@@ -1,5 +1,4 @@
 use crate::framework::domain::api::Identifier;
-use pgrx::FromDatum;
 use pgrx::{PostgresEnum, PostgresType};
 use serde::{Deserialize, Serialize};
 use std::fmt;

@@ -7,7 +7,7 @@ use crate::domain::{
     event_to_order_event, event_to_restaurant_event, order_restaurant_decider,
     order_restaurant_saga, Command, Event,
 };
-use crate::framework::infrastructure::errors::{ErrorMessage, TriggerError};
+use crate::framework::infrastructure::errors::ErrorMessage;
 use crate::framework::infrastructure::to_payload;
 use crate::infrastructure::order_restaurant_event_repository::OrderAndRestaurantEventRepository;
 use crate::infrastructure::order_view_state_repository::OrderViewStateRepository;
@@ -40,6 +40,7 @@ fn handle(command: Command) -> Result<Vec<Event>, ErrorMessage> {
         order_restaurant_decider(),
         order_restaurant_saga(),
     );
+    log!("################### Handling command");
     aggregate
         .handle(&command)
         .map(|res| res.into_iter().map(|(e, _)| e.clone()).collect())
@@ -67,28 +68,26 @@ fn handle_all(commands: Vec<Command>) -> Result<Vec<Event>, ErrorMessage> {
 #[pg_trigger]
 fn handle_restaurant_events<'a>(
     trigger: &'a PgTrigger<'a>,
-) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, TriggerError> {
+) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, ErrorMessage> {
+    log!("################### Handling restaurant events");
     let new = trigger
         .new()
-        .ok_or(TriggerError::NullTriggerTuple)?
+        .ok_or(ErrorMessage {
+            message: "New Database Row is NULL".to_string(),
+        })?
         .into_owned();
-    let event: JsonB = new
-        .get_by_name::<JsonB>("data")?
-        .ok_or(TriggerError::NullTriggerTuple)?;
+    let event: JsonB = new.get_by_name::<JsonB>("data")?.ok_or(ErrorMessage {
+        message: "Data is empty".to_string(),
+    })?;
     let materialized_view =
         RestaurantMeterializedView::new(RestaurantViewStateRepository::new(), restaurant_view());
 
-    match event_to_restaurant_event(
-        &to_payload::<Event>(event)
-            .map_err(|err| TriggerError::EventHandlingError(err.to_string()))?,
-    ) {
+    match event_to_restaurant_event(&to_payload::<Event>(event)?) {
         // If the event is not a Restaurant event, we do nothing
         None => return Ok(Some(new)),
         // If the event is a Restaurant event, we handle it
         Some(e) => {
-            materialized_view
-                .handle(&e)
-                .map_err(|err| TriggerError::EventHandlingError(err.message))?;
+            materialized_view.handle(&e)?;
         }
     }
     Ok(Some(new))
@@ -113,28 +112,26 @@ extension_sql!(
 #[pg_trigger]
 fn handle_order_events<'a>(
     trigger: &'a PgTrigger<'a>,
-) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, TriggerError> {
+) -> Result<Option<PgHeapTuple<'a, impl WhoAllocated>>, ErrorMessage> {
+    log!("################### Handling order events");
     let new = trigger
         .new()
-        .ok_or(TriggerError::NullTriggerTuple)?
+        .ok_or(ErrorMessage {
+            message: "New Database Row is NULL".to_string(),
+        })?
         .into_owned();
-    let event: JsonB = new
-        .get_by_name::<JsonB>("data")?
-        .ok_or(TriggerError::NullTriggerTuple)?;
+    let event: JsonB = new.get_by_name::<JsonB>("data")?.ok_or(ErrorMessage {
+        message: "Data is empty".to_string(),
+    })?;
     let materialized_view =
         OrderMeterializedView::new(OrderViewStateRepository::new(), order_view());
 
-    match event_to_order_event(
-        &to_payload::<Event>(event)
-            .map_err(|err| TriggerError::EventHandlingError(err.to_string()))?,
-    ) {
+    match event_to_order_event(&to_payload::<Event>(event)?) {
         // If the event is not a Restaurant event, we do nothing
         None => return Ok(Some(new)),
         // If the event is a Restaurant event, we handle it
         Some(e) => {
-            materialized_view
-                .handle(&e)
-                .map_err(|err| TriggerError::EventHandlingError(err.message))?;
+            materialized_view.handle(&e)?;
         }
     }
     Ok(Some(new))
@@ -180,6 +177,7 @@ mod tests {
         RestaurantName,
     };
     use crate::domain::{Command, Event};
+    use crate::framework::infrastructure::errors::ErrorMessage;
     use pgrx::prelude::*;
     use uuid::Uuid;
 
@@ -227,8 +225,10 @@ mod tests {
         );
     }
 
-    #[pg_test(error = "Failed to create the Restaurant. Restaurant already exists!")]
-    fn create_restaurant_error_test() {
+    #[pg_test(
+        error = "RestaurantNotCreated(\"Failed to create the Restaurant. Restaurant already exists!\")"
+    )]
+    fn create_restaurant_error_test() -> Result<Vec<Event>, ErrorMessage> {
         let restaurant_identifier =
             RestaurantId(Uuid::parse_str("e48d4d9e-403e-453f-b1ba-328e0ce23737").unwrap());
         let restaurant_name = RestaurantName("Test Restaurant".to_string());
@@ -251,7 +251,7 @@ mod tests {
             },
         });
 
-        let _ = crate::handle(create_restaurant_command);
+        crate::handle(create_restaurant_command)
     }
 
     #[pg_test]
@@ -295,8 +295,10 @@ mod tests {
         );
     }
 
-    #[pg_test(error = "Failed to change the menu. Restaurant does not exist!")]
-    fn change_menu_error_test() {
+    #[pg_test(
+        error = "RestaurantMenuNotChanged(\"Failed to change the menu. Restaurant does not exist!\")"
+    )]
+    fn change_menu_error_test() -> Result<Vec<Event>, ErrorMessage> {
         let restaurant_identifier =
             RestaurantId(Uuid::parse_str("02f09a3f-1624-3b1d-8409-44eff7708208").unwrap());
         let menu_item_id =
@@ -317,7 +319,7 @@ mod tests {
             },
         });
 
-        let _ = crate::handle(change_restaurant_menu);
+        crate::handle(change_restaurant_menu)
     }
 
     #[pg_test]
@@ -361,8 +363,8 @@ mod tests {
         assert_eq!(Some(order_created_event), result.next(),);
     }
 
-    #[pg_test(error = "Failed to place the order. Restaurant does not exist!")]
-    fn place_order_error_test() {
+    #[pg_test(error = "OrderNotPlaced(\"Failed to place the order. Restaurant does not exist!\")")]
+    fn place_order_error_test() -> Result<Vec<Event>, ErrorMessage> {
         let restaurant_identifier =
             RestaurantId(Uuid::parse_str("02f09a3f-1624-3b1d-8409-44eff7708208").unwrap());
         let order_identifier =
@@ -382,7 +384,7 @@ mod tests {
             line_items: line_items.clone(),
         });
 
-        let _ = crate::handle(place_order);
+        crate::handle(place_order)
     }
 
     #[pg_test]
